@@ -1,0 +1,39 @@
+#lang scheme
+(define  (task-03-2021 lst)
+
+  ;поиск корня n-ной степени по методу Ньютона
+  (define (sqrt-iter-n x n accur)
+
+    ;возведение числа в степень
+    (define (pow a n)
+      (define (loop a i result)
+        (cond ((= i 0) result)
+              ((even? i) (loop (* a a) (/ i 2) result))
+              (else (loop a (- i 1) (* a result)))))
+      (loop a n 1))
+
+    ;округление числа согласно заданной точности
+    (define (accuracy number n)
+      (let ( (multiplier (pow 10 n) ) )
+        (/ (round (* number multiplier)) multiplier)
+        )
+      )
+  
+    (let ( (eps (/ 1.0 (pow 10 accur))) )
+      (accuracy (if (= n 1) x
+                    (let loop ((x0 (sqrt x)))
+                      ( let ( (x1 (* x0 (- 1 (/ (- 1 (/ x (pow x0 n))) n)))) )
+                         (if (and (< (- x1 x0) eps) (> (- x1 x0) (- 0 eps))) x1
+                             (loop x1)))
+                      )) accur )
+      )
+  )
+
+  (define accur 5)
+  
+  (let ( (len (length lst)) )
+    (sqrt-iter-n (foldl (lambda (x y) (* x y)) 1.0 (map (lambda (x) ( foldl ( lambda (z y) (+ (* z z) y)) 0 x)) lst)) (+ len len) accur)
+  )
+ )
+
+(task-03-2021 (list (list 3 4) (list 2 2 1) (list 6 8) (list 4320 3240)))
