@@ -13,14 +13,19 @@
   (doctor-driver-loop name)
 )
 
+; part1
+; доктор из первого блока, который поддерживает выбор новой фразы
+; из предыдущих фраз пациента
 (define (visit-doctor-2 name)
   (printf "Hello, ~a!\n" name)
   (print '(what seems to be the trouble?))
   (doctor-driver-loop-v2 name #())
 )
 
+; part2
 ; запускает доктора для работы с amount клиентов или до того, пока кто-либо
-; не назовет в качестве имени стоп-слово
+; не назовет в качестве имени стоп-слов
+; tail нужен для того, чтобы передавать предобработанную структуру
 (define (visit-doctor-v2 stop-word amount . tail)
   (let ( (post-key-words (if (= (length tail) 0) (prepare keywords_structure) (car tail) ) ) ) 
    (if (> amount 0)
@@ -50,12 +55,17 @@
  ) 
 )
 
+; part 2
+; функция, которая обрабатывает структуру, которая позволяет
+; строить овтетные реплики по ключевым словам пациента
+; данная функция строит список ключевых слов
 (define (prepare structure)
   (let loop ( (n (vector-length structure)) (res '()) )
     ( if (= n 0) res
          (loop (sub1 n) (foldl (lambda (x y) (cons x y)) res (car (vector-ref structure (sub1 n))))) )
     )
   )
+
 
 ; цикл диалога Доктора с пациентом
 ; параметр name -- имя пациента
@@ -74,6 +84,28 @@
       )
 )
 
+
+; part1
+; цикл с поддержкой истории ответов
+(define (doctor-driver-loop-v1 name history)
+    (newline)
+    (print '**) ; доктор ждёт ввода реплики пациента, приглашением к которому является **
+    (let ((user-response (read)))
+      (cond 
+	    ((equal? user-response '(goodbye)) ; реплика '(goodbye) служит для выхода из цикла
+             (printf "Goodbye, ~a!\n" name)
+             (print '(see you next week)))
+            (else
+                  (print (reply-v1 user-response history)) ; иначе Доктор генерирует ответ, печатает его и продолжает цикл
+                  (doctor-driver-loop-v2 name (vector-append history (vector user-response)))
+             )
+       )
+      )
+)
+
+
+; part 2
+; цикл с поддержкой как истории ответов, так и ответов по ключевым словам
 (define (doctor-driver-loop-v2 name history post-key-words)
     (newline)
     (print '**) ; доктор ждёт ввода реплики пациента, приглашением к которому является **
@@ -90,16 +122,27 @@
       )
 )
 
+
 ; генерация ответной реплики по user-response -- реплике от пользователя 
 (define (reply user-response)
-      (case (random 3) ; с равной вероятностью выбирается один из двух способов построения ответа
-          ((1) (qualifier-answer user-response)) ; 1й способ
-          ((2) (hedge))  ; 2й способ
-          ((3) (history-answer)); 3й способ
+      (case (random 2) ; с равной вероятностью выбирается один из двух способов построения ответа
+          ((0) (qualifier-answer user-response)) ; 1й способ
+          ((1) (hedge))  ; 2й способ
+      )
+)
+
+; part 1
+; поддержка истории ответов
+(define (reply-v1 user-response history)
+      (case (if (vector-empty? history) (random 2) (random 3)) ; с равной вероятностью выбирается один из двух способов построения ответа
+          ((0) (qualifier-answer user-response)) ; 1й способ
+          ((1) (hedge))  ; 2й способ
+          ((2) (history-answer history)); 3й способ
         
       )
 )
 
+; part 2
 ; post-key-words - список из ключевых слов
 ; сама структура
 (define (reply-v2 user-response history post-key-words)
@@ -114,30 +157,34 @@
       )
 )
 
+; part 2
 ; вспомогательная функция
 ; проверяет пересечение двух списков (есть ли одинаковые элементы)
 (define (list-cross? lst1 lst2)
   (ormap (lambda (y) (member y lst2)) lst1)
   )
 
+; part 2
 ; вспомогательная функция
 ; выбор случайного элемента из списка
 (define (pick-random-list lst)
   (list-ref lst (random (length lst)))
   )
 
+; part 2
 ; проверяет, есть ли ключевое слово в ответе
 (define (find-key-words user-response post-key-words)
   (list-cross? user-response post-key-words)
   )
 
 
-
+; part 2
 ; 1й способ - генерация ответа по ключевым словам
 (define (key-word-answer user-response post-key-words)
   (select-reply-expression user-response post-key-words)
   )
 
+; part 2
 ; выбор ответной реплики по ключевому слову
 (define (select-reply-expression user-response post-key-words)
   (let* ( (key-word (select-key-word user-response post-key-words))
@@ -145,12 +192,14 @@
     (many-replace-v3 (list (list '* key-word)) (pick-random-list (pick-random-vector (vector-map (lambda (x) (cadr x) ) vector-expressions)))))
   )
 
+; part 2
 ; выбор ключевого слова из реплики
 (define (select-key-word user-response post-key-words)
   (pick-random-list (make-key-words-list user-response post-key-words))
   )
     
 
+; part2
 ;формирует список из ключевых слов в реплике
 (define (make-key-words-list user-response post-key-words)
   (foldl (lambda (x y) (if (member x post-key-words)
@@ -158,7 +207,8 @@
                            y)) '() user-response)
   )
 
-                            
+
+; part 2
 ; структура из ключевых слов и ответых реплик
 (define keywords_structure '#(
   (
@@ -256,7 +306,7 @@
          )
   )
 
-
+; part 1
 (define (many-replace-v2 replacement-pairs lst)
   (let loop ( (lst lst) (result '()) )
     (if (null? lst) (reverse result)
@@ -267,7 +317,7 @@
     )   
   )
 
-
+; part 1
 (define (many-replace-v3 replacement-pairs lst)
    ( map ( lambda (x) (let ( (pat-rep (assoc x replacement-pairs)) ) (if pat-rep (cadr pat-rep) x)) ) lst )
   )
@@ -284,15 +334,178 @@
          )
 )
 
-
-;4й способ генерации овтетной реплики -- вернуться к сказанному пациентом ранее
+; part 1
+; 4й способ генерации овтетной реплики -- вернуться к сказанному пациентом ранее
 (define (history-answer history)
    (append '(earlier you said that) (change-person (pick-random-vector history)) )
   )
 
 
-; ТЕСТЫ
-(make-key-words-list '(scheme privet depressed kakaak scheme) '(depressed suicide exams university scheme))
-(select-key-word '(scheme privet depressed kakaak scheme) '(depressed suicide exams university scheme))
+; part 3
 
-(select-reply-expression'(scheme privet depressed kakaak scheme) '(depressed suicide exams university scheme))
+; структура стратегии
+; на первом месте предикат, на втором вес, затем сама стратегия
+(define (struct-strategy func-predicat weight strategy)
+  (if (and (procedure? func-predicat) (integer? weight) (> weight 0) (procedure? strategy))
+      (vector-immutable func-predicat weight strategy)
+      (void)
+      )
+  )
+
+(define (struct-strategy-predicate strategy)
+  (vector-ref strategy 0)
+  )
+
+(define (struct-strategy-weight strategy)
+  (vector-ref strategy 1)
+  )
+
+(define (struct-strategy-strategy strategy)
+  (vector-ref strategy 2)
+  )
+
+(define (struct-strategy-null? strategy)
+  (= (vector-length strategy) 0)
+  )
+
+(define (struct-strategy? strategy)
+  (and (vector? strategy) (= (vector-length strategy) 3) (procedure? (vector-ref strategy 0))
+       (integer? (vector-ref strategy 1)) (> (vector-ref strategy 1) 0) (procedure? (vector-ref strategy 2)))
+  )
+
+
+; структура для всех стратегий
+; принимает любое число стратегий
+(define (all-strategy-struct . tail)
+  (if (andmap struct-strategy? tail)
+      (list->vector tail)
+      (void)
+      )
+  )
+
+
+(define all-strategy-struct-length vector-length)
+
+(define all-strategy-struct-ref vector-ref)
+
+(define (all-strategy-struct-add all-strategy strategy)
+  (if (struct-strategy?) (vector-append all-strategy (vector-immutable strategy)) all-strategy)
+  )
+
+(define (all-strategy-struct-delete all-strategy pos)
+  (vector-append (vector-take all-strategy pos) (vector-drop all-strategy (add1 pos)))
+  )
+
+
+
+; tail: user-response, history, post-key-words, ... 
+; функция, которая формирует список возможных стратегий
+(define (available-strategy all-strategy args)
+  ;(vector->list (vector-filter (lambda (x) ( (strategy-struct-pred x) args)) all-strategy))
+  (let ( (length (all-strategy-struct-length all-strategy)) )
+    (let loop ( (res '()) (pos 0) )
+      (if (= pos length) res
+          (let ( (strategy (all-strategy-struct-ref all-strategy pos)) )
+            (if ((struct-strategy-predicate strategy) args) (loop (cons strategy res) (add1 pos)) (loop res (add1 pos)))
+            )
+          )
+      )
+    )
+  )
+            
+    
+
+; выбор случайного элемента с весом
+; func - функция, достающая вес из элементов списка
+(define (pick-random-with-weight list-of-elems-with-weight func)
+  (let* ( (amount-weight (foldl (lambda (x y) (+ (func x) y)) 0 list-of-elems-with-weight))
+          (result (random amount-weight)) )
+    (let loop ( (result result) (lst list-of-elems-with-weight) )
+      (let ( (new-res (- result (func (car lst)))) )
+        (if (< new-res 0) (car lst) (loop new-res (cdr lst)))
+        )
+      )
+    )
+  )
+  
+; part3 обобщенный reply
+; args: user-response, history, post-key-words, ...
+(define (reply-v3 all-strategy . args)
+  (let ((strategies (available-strategy all-strategy args)))
+    ((struct-strategy-strategy (pick-random-with-weight strategies struct-strategy-weight)) args)
+    )
+  )
+
+
+; структура из всех стратегий
+(define (make-all-strategy-struct)
+  
+  ; оборачиваем стратегии в структуры
+  (define qualifier-answer-struct
+  (struct-strategy (lambda (args) #t) 2 (lambda (args) (qualifier-answer (list-ref args 0)))))
+
+  (define hedge-struct
+  (struct-strategy (lambda (args) #t) 1 (lambda (args) (hedge))))
+
+  (define history-answer-struct
+  (struct-strategy (lambda (args) (not (vector-empty? (list-ref args 1)))) 1 (lambda (args) (history-answer (list-ref args 1)))))
+
+  (define key-word-answer-struct
+  (struct-strategy (lambda (args) (find-key-words (list-ref args 0) (list-ref args 2))) 2
+                      (lambda (args) (key-word-answer (list-ref args 0) (list-ref args 2))))
+    )
+
+  ; создаём структуру
+  (all-strategy-struct qualifier-answer-struct hedge-struct history-answer-struct key-word-answer-struct)
+  )
+
+(define (visit-doctor-v3 stop-word amount all-strategy . tail)
+  (let ( (post-key-words (if (= (length tail) 0) (prepare keywords_structure) (car tail) ) ) ) 
+   (if (> amount 0)
+      (let ( (name (ask-patient-name) ) )
+        (if (not (equal? name stop-word))
+            (begin                                   
+             (printf "Hello, ~a!\n" name)
+             (print '(what seems to be the trouble?))
+             (doctor-driver-loop-v3 all-strategy name #() post-key-words)
+             (visit-doctor-v3 stop-word (sub1 amount) all-strategy post-key-words)
+            )
+            (void)
+        )
+      )
+      (void)
+     )
+   )
+)
+
+; part 3
+(define (doctor-driver-loop-v3 all-strategy name history post-key-words)
+    (newline)
+    (print '**) ; доктор ждёт ввода реплики пациента, приглашением к которому является **
+    (let ((user-response (read)))
+      (cond 
+	    ((equal? user-response '(goodbye)) ; реплика '(goodbye) служит для выхода из цикла
+             (printf "Goodbye, ~a!\n" name)
+             (print '(see you next week)))
+            (else
+                  (print (reply-v3 all-strategy user-response history post-key-words)) ; иначе Доктор генерирует ответ, печатает его и продолжает цикл
+                  (doctor-driver-loop-v3 all-strategy name (vector-append history (vector user-response)) post-key-words)
+             )
+       )
+      )
+)
+
+
+; LAUNCH
+
+;part 2 launch
+;(visit-doctor-v2 'stop 2)
+
+;part 3 launch
+;(visit-doctor-v3 'stop 2 (make-all-strategy-struct))
+
+
+
+
+
+
