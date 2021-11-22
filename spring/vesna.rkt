@@ -4,7 +4,12 @@
 (define separators (list #\. #\! #\? #\, #\- #\; #\" #\\ #\' #\( #\) #\; #\—))
 
 ; Хэш-таблица N-1 грамма -> пара (вес, хэш таблица (слово, вес))
-(define graph (make-hash '()))
+
+; чтобы предложения начинались со смыслом
+(define graph-start (make-hash '()))
+
+(define graph-direct (make-hash '()))
+(define graph-backward (make-hash '()))
 
 (define N 7)
 
@@ -38,7 +43,9 @@
                      (if (ormap (lambda (x) (equal? (car buf) x)) end-separators)
                          (begin
                            (set! rest (cdr buf))
-                           (reverse (cons (car buf) result))
+                           (let ( (result (reverse (cons (car buf) result))) )
+                             (cons (string-downcase (car result)) (cdr result))
+                             )
                            )
                          (create-sentence (cons (car buf) result) (cdr buf))
                          )
@@ -61,8 +68,12 @@
 (hash-ref hash1 "a")
 (hash-ref hash2 "a")
 
-;заполняет таблицу N-1 грамм
-(define (fill-graph sentence-generator)
+
+;заполняет таблицу N-1 грамм в прямом порядке
+;сделать начала предложений в нижнем регистре перед loop
+;string-downcase
+(define (fill-graph sentence-generator)    
+  
   (define (trunc-list lst size)
     (let loop ( (lst lst) (res '()) (size size))
       (if (= size 0) (reverse res)
@@ -70,35 +81,88 @@
           )
       )
     )
+  
   (let loop ( (sentence (sentence-generator)) )
     (if (not (eof-object? sentence))
-             (if (>= (length sentence) N)
-                 (begin
-                   (let* ( (N-1-gram (trunc-list sentence (sub1 N))) (res (hash-ref graph N-1-gram #f)) (word (list-ref sentence (sub1 N))) )
-                     (if res (let ( (weight (hash-ref (cdr res) word #f)) )
-                                 (begin (hash-set! graph N-1-gram (cons (add1 (car res)) (cdr res))) (if weight (hash-set! (cdr res) word (add1 weight))
+        (begin
+        (if (>= (length sentence) N)
+                   (let* ( (N-1-gram (trunc-list sentence (sub1 N))) (res (hash-ref graph-start N-1-gram #f)) (word (list-ref sentence (sub1 N))) )
+                       (if res
+                           (let ( (weight (hash-ref (cdr res) word #f)) )
+                                 (begin (hash-set! graph-start N-1-gram (cons (add1 (car res)) (cdr res))) (if weight (hash-set! (cdr res) word (add1 weight))
                                      (hash-set! (cdr res) word 1)
                                      ))
                                  )
-                           (hash-set! graph N-1-gram (cons 1 (make-hash (list (cons word 1)))))
-                        )
-                     )
-                   (loop (sentence-generator))
-                   )
-                 (loop (sentence-generator))
+                           (hash-set! graph-start N-1-gram (cons 1 (make-hash (list (cons word 1)))))
+                           )
+                    )
+                   (void)
+            )
+        (let loop1 ( (sentence sentence) )
+             (if (>= (length sentence) N)
+                   (let* ( (N-1-gram (trunc-list sentence (sub1 N))) (res (hash-ref graph-direct N-1-gram #f)) (word (list-ref sentence (sub1 N))) )
+                     (begin
+                       (if res
+                           (let ( (weight (hash-ref (cdr res) word #f)) )
+                                 (begin (hash-set! graph-direct N-1-gram (cons (add1 (car res)) (cdr res))) (if weight (hash-set! (cdr res) word (add1 weight))
+                                     (hash-set! (cdr res) word 1)
+                                     ))
+                                 )
+                           (hash-set! graph-direct N-1-gram (cons 1 (make-hash (list (cons word 1)))))
+                           )
+                       (loop1 (cdr sentence))
+                      )
+                    )
+                   (void)
                 )
-             (void)
-       )
+             )
+        (let loop2 ( (sentence (cdr (reverse (cons "." sentence)))) )
+          (if (>= (length sentence) N)
+             (let* ( (N-1-gram (reverse (trunc-list sentence (sub1 N)))) (res (hash-ref graph-backward N-1-gram #f)) (word (list-ref sentence (sub1 N))) )
+                     (begin
+                       (if res
+                           (let ( (weight (hash-ref (cdr res) word #f)) )
+                                 (begin (hash-set! graph-backward N-1-gram (cons (add1 (car res)) (cdr res))) (if weight (hash-set! (cdr res) word (add1 weight))
+                                     (hash-set! (cdr res) word 1)
+                                     ))
+                                 )
+                           (hash-set! graph-backward N-1-gram (cons 1 (make-hash (list (cons word 1)))))
+                           )
+                       (loop2 (cdr sentence))
+                      )
+                    )
+                   (void)
+               )
+          )
+        (loop (sentence-generator))
+        )
+
+        (void)
+      )
     )
   )
-                               
-          
-         
+
 (fill-graph sentence)
-(write-to-file graph "save.bin"  #:exists 'truncate)
-graph
+graph-start
+(define result (list graph-start graph-direct graph-backward))
+(write-to-file result "save.bin"  #:exists 'truncate)
+(define result-list (file->value "save.bin"))
+(cadr result-list)
+
+;Когда генерируем в прямом порядке, то сначала выбираем из graph-start, а потом уже идем по graph-direct
+;это делается, что избежать случаев, когда запятая стоит сразу или после первого слова
+;Когда смешанный режим, то в обратную сторону по graph-backward, а вперед по graph-direct
+#|
+(fill-graph sentence)
+(write-to-file graph-start "save.bin"  #:exists 'truncate)
+graph-start
+(sleep 10)
+graph-direct
+(sleep 10)
+graph-backward
+(sleep 10)
 (define graph1 (file->value "save.bin"))
 graph1
-
+|#
 
           
